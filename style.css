@@ -1,0 +1,48 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+    width: 300px;
+    padding: 10px;
+    color: #333;
+  }
+  
+  h1, h3 {
+    text-align: center;
+    color: #444;
+  }
+  
+  button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  
+  button:hover {
+    background-color: #0056b3;
+  }
+  
+  #timeList, #history {
+    margin-top: 20px;
+    padding: 10px;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  #history ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  
+  #history li {
+    margin: 5px 0;
+  }
+  

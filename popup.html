@@ -1,18 +1,119 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Tab Time Tracker</title>
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <h1>Tab Time Tracker</h1>
-    <button id="resetButton">Reset Session</button>
-    <div id="sessionData">
-      <h3>Today's Data</h3>
-      <div id="timeList"></div>
-      <div id="totalTime"></div>
+<head>
+  <title>Tab Time Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header-logo">
+      <img src="logo.png" alt="Logo">
+      <h1>Tab Time Tracker</h1>
     </div>
-    <div id="history"></div>
-    <script src="popup.js"></script>
-  </body>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="today">Today</div>
+      <div class="tab" data-tab="analytics">Analytics</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+    
+    <div id="today" class="content active">
+      <div class="glass-card">
+        <div class="action-buttons">
+          <button id="resetButton"><i class="fas fa-redo"></i> Reset</button>
+          <button id="exportButton"><i class="fas fa-file-export"></i> Export</button>
+        </div>
+        <input type="text" class="search-bar" id="siteSearch" placeholder="Search sites...">
+        <div id="timeList" class="site-list"></div>
+      </div>
+      
+      <div class="glass-card">
+        <h3>Today's Overview</h3>
+        <div id="totalTime" class="total-time"></div>
+        <div class="chart-container">
+          <canvas id="todayChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="analytics" class="content">
+      <div class="glass-card">
+        <div class="dates-filter">
+          <select id="timeRangeSelect">
+            <option value="day">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
+        <div id="customDateRange" style="display:none;">
+          <input type="date" id="startDate">
+          <input type="date" id="endDate">
+          <button id="applyRange">Apply</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="historyChart"></canvas>
+        </div>
+        <div id="history" class="history-data"></div>
+      </div>
+      
+      <div class="glass-card">
+        <h3>Productivity Insights</h3>
+        <div id="productivityInsights"></div>
+      </div>
+    </div>
+
+    <div id="settings" class="content">
+      <div class="glass-card">
+        <h3>Display Settings</h3>
+        <div class="settings-row">
+          <span>Dark Mode</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <span>Show Seconds</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="showSecondsToggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="glass-card">
+        <h3>Website Categories</h3>
+        <div id="categoriesList"></div>
+        <button id="addCategoryButton"><i class="fas fa-plus"></i> Add Category</button>
+      </div>
+      
+      <div class="glass-card">
+        <h3>Time Limits</h3>
+        <div class="settings-row">
+          <span>Enable Website Limits</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="timeLimitsToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="siteLimits"></div>
+        <button id="addSiteLimitButton"><i class="fas fa-plus"></i> Add Site Limit</button>
+      </div>
+      
+      <div class="glass-card">
+        <h3>Data Management</h3>
+        <button id="exportDataButton"><i class="fas fa-file-export"></i> Export All Data</button>
+        <button id="importDataButton"><i class="fas fa-file-import"></i> Import Data</button>
+        <button id="clearDataButton" class="danger"><i class="fas fa-trash"></i> Clear All Data</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
 </html>

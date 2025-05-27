@@ -135,629 +135,477 @@ document.addEventListener("DOMContentLoaded", () => {
     saveUserPreferences();
   });
 
-  function fetchDataAndRender() {
-    chrome.storage.local.get(['history', 'categories', 'settings'], (data) => {
-      if (chrome.runtime.lastError) {
-        console.error(chrome.runtime.lastError);
-        return;
-      }
-      
-      currentData = data.history || {};
-      siteCategories = data.categories || siteCategories;
-      renderData(currentData);
-      updateAnalytics(timeRangeSelect.value);
-      renderCategories();
-      renderSiteLimits();
-    });
-  }
-  
-  function renderData(data) {
-    const currentDate = getCurrentDate();
-    const todayData = data[currentDate] || {};
+  // Debug panel for troubleshooting
+  function addDebugPanel() {
+    const settingsTab = document.getElementById('settings');
+    if (!settingsTab) return;
     
-    // Sort domains by time spent (descending)
-    const sortedDomains = Object.entries(todayData)
-      .sort(([, timeA], [, timeB]) => timeB - timeA);
+    const debugCard = document.createElement('div');
+    debugCard.className = 'glass-card';
+    debugCard.innerHTML = `
+      <h3>Troubleshooting</h3>
+      <div class="settings-row">
+        <span>Show Debug Info</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="debugToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div id="debugInfo" style="display: none; font-size: 12px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto;"></div>
+      <button id="refreshDataButton">Refresh Data</button>
+      <button id="fixStorageButton">Repair Storage</button>
+    `;
     
-    // Calculate total time
-    let totalTimeSpent = Object.values(todayData).reduce((total, time) => total + time, 0);
+    settingsTab.appendChild(debugCard);
     
-    // Render time list
-    timeListDiv.innerHTML = '';
-    if (sortedDomains.length === 0) {
-      timeListDiv.innerHTML = '<div class="empty-state">No tracking data for today yet.</div>';
-    } else {
-      sortedDomains.forEach(([domain, timeSpent]) => {
-        const element = document.createElement('div');
-        element.className = 'site-item';
+    // Toggle debug info
+    const debugToggle = document.getElementById('debugToggle');
+    const debugInfo = document.getElementById('debugInfo');
+    
+    if (debugToggle && debugInfo) {
+      debugToggle.addEventListener('change', () => {
+        debugInfo.style.display = debugToggle.checked ? 'block' : 'none';
         
-        const category = siteCategories[domain] || 'other';
-        
-        element.innerHTML = `
-          <img class="site-icon" src="https://www.google.com/s2/favicons?domain=${domain}" onerror="this.src='icon-fallback.png'">
-          <div class="site-name">${domain}</div>
-          <div class="site-time">${formatTime(timeSpent)}</div>
-          <span class="category ${category}">${category}</span>
-        `;
-        timeListDiv.appendChild(element);
+        if (debugToggle.checked) {
+          updateDebugInfo();
+        }
       });
     }
     
-    // Update total time display
-    totalTimeDiv.textContent = `Total Time: ${formatTime(totalTimeSpent)}`;
-    
-    // Update chart
-    updateTodayChart(sortedDomains);
-  }
-  
-  function updateTodayChart(domainData) {
-    // Process data for the chart
-    const labels = [];
-    const data = [];
-    const backgroundColors = [];
-    
-    // Limit to top 5 for chart visualization
-    const topDomains = domainData.slice(0, 5);
-    
-    // Add domain data
-    topDomains.forEach(([domain, time]) => {
-      labels.push(domain);
-      data.push(time);
-      
-      // Assign color based on category
-      const category = siteCategories[domain] || 'other';
-      const color = getCategoryColor(category);
-      backgroundColors.push(color);
-    });
-    
-    // If there are more than 5 domains, add an "Others" category
-    if (domainData.length > 5) {
-      const otherTime = domainData.slice(5).reduce((total, [, time]) => total + time, 0);
-      labels.push('Others');
-      data.push(otherTime);
-      backgroundColors.push('rgba(150, 150, 150, 0.7)');
+    // Refresh data
+    const refreshButton = document.getElementById('refreshDataButton');
+    if (refreshButton) {
+      refreshButton.addEventListener('click', () => {
+        fetchDataAndRender();
+        showNotification('Data refreshed');
+        
+        if (debugToggle.checked) {
+          updateDebugInfo();
+        }
+      });
     }
     
-    // Create or update the chart
-    const ctx = document.getElementById('todayChart').getContext('2d');
-    
-    if (todayChart) {
-      todayChart.data.labels = labels;
-      todayChart.data.datasets[0].data = data;
-      todayChart.data.datasets[0].backgroundColor = backgroundColors;
-      todayChart.update();
-    } else {
-      todayChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: labels,
-          datasets: [{
-            data: data,
-            backgroundColor: backgroundColors,
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                color: 'white',
-                font: {
-                  size: 10
-                }
-              }
+    // Fix storage button
+    const fixStorageButton = document.getElementById('fixStorageButton');
+    if (fixStorageButton) {
+      fixStorageButton.addEventListener('click', () => {
+        chrome.storage.local.get(null, (data) => {
+          // Ensure required objects exist
+          if (!data.history) data.history = {};
+          if (!data.categories) data.categories = siteCategories;
+          if (!data.settings) data.settings = { enableTimeLimits: false };
+          if (!data.limits) data.limits = {};
+          if (!data.preferences) data.preferences = { darkMode: false, showSeconds: true };
+          
+          // Save fixed data
+          chrome.storage.local.set(data, () => {
+            showNotification('Storage repaired');
+            fetchDataAndRender();
+            
+            if (debugToggle.checked) {
+              updateDebugInfo();
             }
-          }
+          });
+        });
+      });
+    }
+    
+    function updateDebugInfo() {
+      chrome.storage.local.get(null, (data) => {
+        const info = {
+          'Extension Version': '2.0',
+          'History Entries': Object.keys(data.history || {}).length,
+          'Categories': Object.keys(data.categories || {}).length,
+          'Time Limits': Object.keys(data.limits || {}).length,
+          'Settings': JSON.stringify(data.settings || {}),
+          'Active Tab ID': activeTabId || 'None',
+          'Browser': navigator.userAgent
+        };
+        
+        let html = '';
+        for (const [key, value] of Object.entries(info)) {
+          html += `<div><strong>${key}:</strong> ${value}</div>`;
+        }
+        
+        if (debugInfo) {
+          debugInfo.innerHTML = html;
         }
       });
     }
-  }
-  
-  function updateAnalytics(timeRange, startDate, endDate) {
-    let filteredData = {};
-    const currentDate = new Date();
-    
-    switch (timeRange) {
-      case 'day':
-        const todayStr = getCurrentDate();
-        filteredData[todayStr] = currentData[todayStr] || {};
-        break;
-      
-      case 'week':
-        // Get data for the last 7 days
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(currentDate);
-          date.setDate(date.getDate() - i);
-          const dateStr = formatDate(date);
-          if (currentData[dateStr]) {
-            filteredData[dateStr] = currentData[dateStr];
-          }
-        }
-        break;
-      
-      case 'month':
-        // Get data for the current month
-        const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-        
-        for (let d = firstDay; d <= lastDay; d.setDate(d.getDate() + 1)) {
-          const dateStr = formatDate(d);
-          if (currentData[dateStr]) {
-            filteredData[dateStr] = currentData[dateStr];
-          }
-        }
-        break;
-      
-      case 'custom':
-        // Parse custom date range
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        
-        for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
-          const dateStr = formatDate(d);
-          if (currentData[dateStr]) {
-            filteredData[dateStr] = currentData[dateStr];
-          }
-        }
-        break;
-    }
-    
-    renderHistoryData(filteredData);
-    updateHistoryChart(filteredData);
-    updateProductivityInsights(filteredData);
-  }
-  
-  function renderHistoryData(data) {
-    historyDiv.innerHTML = '';
-    
-    if (Object.keys(data).length === 0) {
-      historyDiv.innerHTML = '<div class="empty-state">No data available for this time period.</div>';
-      return;
-    }
-    
-    // Sort dates from newest to oldest
-    const sortedDates = Object.keys(data).sort((a, b) => new Date(b) - new Date(a));
-    
-    sortedDates.forEach(date => {
-      const dateDiv = document.createElement('div');
-      dateDiv.className = 'glass-card date-card';
-      
-      const formattedDate = new Date(date).toLocaleDateString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-      
-      dateDiv.innerHTML = `<h4>${formattedDate}</h4>`;
-      
-      const domains = Object.entries(data[date])
-        .sort(([, timeA], [, timeB]) => timeB - timeA);
-      
-      const siteList = document.createElement('div');
-      
-      domains.forEach(([domain, time]) => {
-        const siteItem = document.createElement('div');
-        siteItem.className = 'site-item';
-        
-        const category = siteCategories[domain] || 'other';
-        
-        siteItem.innerHTML = `
-          <img class="site-icon" src="https://www.google.com/s2/favicons?domain=${domain}" onerror="this.src='icon-fallback.png'">
-          <div class="site-name">${domain}</div>
-          <div class="site-time">${formatTime(time)}</div>
-          <span class="category ${category}">${category}</span>
-        `;
-        siteList.appendChild(siteItem);
-      });
-      
-      dateDiv.appendChild(siteList);
-      historyDiv.appendChild(dateDiv);
-    });
   }
 
-  function updateHistoryChart(data) {
-    // Aggregate data by category
-    const categoryTimes = {};
-    
-    Object.values(data).forEach(domains => {
-      Object.entries(domains).forEach(([domain, time]) => {
-        const category = siteCategories[domain] || 'other';
-        
-        if (!categoryTimes[category]) {
-          categoryTimes[category] = 0;
+  // Improved error handling
+  function handleError(error, context) {
+    console.error(`Error in ${context}:`, error);
+    showNotification(`Error: ${error.message || 'Unknown error'}`, 'error');
+  }
+
+  // Enhanced fetch data function
+  function fetchDataAndRender() {
+    chrome.storage.local.get(['history', 'categories', 'settings', 'limits'], (data) => {
+      try {
+        if (chrome.runtime.lastError) {
+          throw new chrome.runtime.lastError;
         }
         
-        categoryTimes[category] += time;
-      });
-    });
-    
-    // Prepare chart data
-    const labels = Object.keys(categoryTimes);
-    const times = Object.values(categoryTimes);
-    const backgroundColors = labels.map(category => getCategoryColor(category));
-    
-    // Create or update the chart
-    const ctx = document.getElementById('historyChart').getContext('2d');
-    
-    if (historyChart) {
-      historyChart.data.labels = labels;
-      historyChart.data.datasets[0].data = times;
-      historyChart.data.datasets[0].backgroundColor = backgroundColors;
-      historyChart.update();
-    } else {
-      historyChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Time by Category',
-            data: times,
-            backgroundColor: backgroundColors
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return formatTime(context.raw);
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              ticks: {
-                color: 'white',
-                callback: function(value) {
-                  return formatTime(value, true);
-                }
-              }
-            },
-            x: {
-              ticks: {
-                color: 'white'
-              }
-            }
-          }
-        }
-      });
-    }
-  }
-  
-  function updateProductivityInsights(data) {
-    const insightsDiv = document.getElementById('productivityInsights');
-    insightsDiv.innerHTML = '';
-    
-    // Calculate total time
-    let totalTime = 0;
-    let workTime = 0;
-    let socialTime = 0;
-    let entertainmentTime = 0;
-    
-    Object.values(data).forEach(domains => {
-      Object.entries(domains).forEach(([domain, time]) => {
-        totalTime += time;
-        const category = siteCategories[domain] || 'other';
-        if (category === 'work') workTime += time;
-        if (category === 'social') socialTime += time;
-        if (category === 'entertainment') entertainmentTime += time;
-      });
-    });
-    
-    // If no data, show a message
-    if (totalTime === 0) {
-      insightsDiv.innerHTML = '<div class="empty-state">No data available for insights.</div>';
-      return;
-    }
-    
-    // Calculate percentages
-    const workPercent = Math.round((workTime / totalTime) * 100);
-    const socialPercent = Math.round((socialTime / totalTime) * 100);
-    const entertainmentPercent = Math.round((entertainmentTime / totalTime) * 100);
-    
-    // Add productivity score (simple calculation - higher work percentage = higher score)
-    const productivityScore = Math.round(workPercent * 0.8 + (100 - entertainmentPercent - socialPercent) * 0.2);
-    
-    const scoreElement = document.createElement('div');
-    scoreElement.className = 'productivity-score';
-    scoreElement.innerHTML = `
-      <h4>Productivity Score</h4>
-      <div class="score">${productivityScore}/100</div>
-    `;
-    insightsDiv.appendChild(scoreElement);
-    
-    const breakdownElement = document.createElement('div');
-    breakdownElement.className = 'category-breakdown';
-    breakdownElement.innerHTML = `
-      <h4>Time Breakdown</h4>
-      <div class="category-item">
-        <span>Work</span>
-        <div class="progress-bar">
-          <div class="progress" style="width: ${workPercent}%; background-color: rgba(50, 205, 50, 0.7);"></div>
-        </div>
-        <span>${workPercent}%</span>
-      </div>
-      <div class="category-item">
-        <span>Social</span>
-        <div class="progress-bar">
-          <div class="progress" style="width: ${socialPercent}%; background-color: rgba(30, 144, 255, 0.7);"></div>
-        </div>
-        <span>${socialPercent}%</span>
-      </div>
-      <div class="category-item">
-        <span>Entertainment</span>
-        <div class="progress-bar">
-          <div class="progress" style="width: ${entertainmentPercent}%; background-color: rgba(255, 69, 0, 0.7);"></div>
-        </div>
-        <span>${entertainmentPercent}%</span>
-      </div>
-    `;
-    insightsDiv.appendChild(breakdownElement);
-    
-    // Add recommendations
-    const recommendationsElement = document.createElement('div');
-    recommendationsElement.className = 'recommendations';
-    
-    let recommendation = '';
-    if (workPercent < 30) {
-      recommendation = 'Try to increase your work-related browsing time.';
-    } else if (entertainmentPercent > 50) {
-      recommendation = 'Consider reducing time spent on entertainment websites.';
-    } else if (productivityScore > 70) {
-      recommendation = 'Great job maintaining a productive browsing balance!';
-    } else {
-      recommendation = 'Your browsing habits are balanced. Keep it up!';
-    }
-    
-    recommendationsElement.innerHTML = `
-      <h4>Recommendations</h4>
-      <p>${recommendation}</p>
-    `;
-    insightsDiv.appendChild(recommendationsElement);
-  }
-  
-  function renderCategories() {
-    const categoriesList = document.getElementById('categoriesList');
-    categoriesList.innerHTML = '';
-    
-    // Get unique domains from history
-    const domains = new Set();
-    
-    Object.values(currentData).forEach(dayData => {
-      Object.keys(dayData).forEach(domain => domains.add(domain));
-    });
-    
-    // Create category elements
-    domains.forEach(domain => {
-      const category = siteCategories[domain] || 'other';
-      
-      const categoryItem = document.createElement('div');
-      categoryItem.className = 'settings-row';
-      categoryItem.innerHTML = `
-        <span>${domain}</span>
-        <select class="category-select" data-domain="${domain}">
-          <option value="work" ${category === 'work' ? 'selected' : ''}>Work</option>
-          <option value="social" ${category === 'social' ? 'selected' : ''}>Social</option>
-          <option value="entertainment" ${category === 'entertainment' ? 'selected' : ''}>Entertainment</option>
-          <option value="other" ${category === 'other' ? 'selected' : ''}>Other</option>
-        </select>
-      `;
-      
-      categoriesList.appendChild(categoryItem);
-      
-      // Add event listener to select
-      const select = categoryItem.querySelector('.category-select');
-      select.addEventListener('change', () => {
-        siteCategories[domain] = select.value;
-        chrome.storage.local.set({ categories: siteCategories }, () => {
-          showNotification('Category updated!');
-          renderData(currentData);
-          updateAnalytics(timeRangeSelect.value);
+        currentData = data.history || {};
+        siteCategories = data.categories || siteCategories;
+        
+        console.log("Fetched data:", { 
+          historyEntries: Object.keys(currentData).length,
+          categories: Object.keys(siteCategories).length 
         });
-      });
+        
+        renderData(currentData);
+        updateAnalytics(timeRangeSelect.value);
+        renderCategories();
+        renderSiteLimits();
+        
+        // Update time limits toggle based on settings
+        if (data.settings && timeLimitsToggle) {
+          timeLimitsToggle.checked = data.settings.enableTimeLimits || false;
+        }
+      } catch (error) {
+        handleError(error, 'fetchDataAndRender');
+      }
     });
   }
   
-  function renderSiteLimits() {
-    const siteLimits = document.getElementById('siteLimits');
-    siteLimits.innerHTML = '';
-    
-    // Get saved limits
-    chrome.storage.local.get('limits', (data) => {
-      const limits = data.limits || {};
+  // Improved render data function with error handling
+  function renderData(data) {
+    try {
+      const currentDate = getCurrentDate();
+      const todayData = data[currentDate] || {};
       
-      // Get unique domains
-      const domains = new Set();
-      Object.values(currentData).forEach(dayData => {
-        Object.keys(dayData).forEach(domain => domains.add(domain));
-      });
+      console.log(`Rendering data for ${currentDate}, found ${Object.keys(todayData).length} domains`);
       
-      if (Object.keys(limits).length === 0) {
-        siteLimits.innerHTML = '<div class="empty-state">No site limits set. Add some below.</div>';
+      // Sort domains by time spent (descending)
+      const sortedDomains = Object.entries(todayData)
+        .sort(([, timeA], [, timeB]) => timeB - timeA);
+      
+      // Calculate total time
+      let totalTimeSpent = Object.values(todayData).reduce((total, time) => total + time, 0);
+      
+      // Render time list
+      timeListDiv.innerHTML = '';
+      if (sortedDomains.length === 0) {
+        timeListDiv.innerHTML = '<div class="empty-state">No tracking data for today yet.</div>';
+      } else {
+        sortedDomains.forEach(([domain, timeSpent]) => {
+          const element = document.createElement('div');
+          element.className = 'site-item';
+          
+          const category = siteCategories[domain] || 'other';
+          
+          element.innerHTML = `
+            <img class="site-icon" src="https://www.google.com/s2/favicons?domain=${domain}" onerror="this.src='icon-fallback.png'">
+            <div class="site-name">${domain}</div>
+            <div class="site-time">${formatTime(timeSpent)}</div>
+            <span class="category ${category}">${category}</span>
+          `;
+          timeListDiv.appendChild(element);
+        });
       }
       
-      // Create limit elements
-      Object.entries(limits).forEach(([domain, limit]) => {
-        const limitItem = document.createElement('div');
-        limitItem.className = 'site-limit-row';
-        limitItem.innerHTML = `
-          <span>${domain}</span>
-          <span>${limit} minutes</span>
-          <button class="remove-limit" data-domain="${domain}"><i class="fas fa-trash"></i></button>
-        `;
-        
-        siteLimits.appendChild(limitItem);
-        
-        // Add event listener to remove button
-        const removeButton = limitItem.querySelector('.remove-limit');
-        removeButton.addEventListener('click', () => {
-          delete limits[domain];
-          chrome.storage.local.set({ limits }, () => {
-            showNotification('Limit removed!');
-            renderSiteLimits();
-          });
-        });
-      });
-    });
-    
-    // Add button to add new limits
-    document.getElementById('addSiteLimitButton').addEventListener('click', () => {
-      const domain = prompt('Enter domain to limit (e.g., facebook.com):');
-      if (!domain) return;
+      // Update total time display
+      if (totalTimeDiv) {
+        totalTimeDiv.textContent = `Total Time: ${formatTime(totalTimeSpent)}`;
+      }
       
-      const limitMinutes = parseInt(prompt('Enter time limit in minutes:'));
-      if (isNaN(limitMinutes) || limitMinutes <= 0) {
-        alert('Please enter a valid time limit');
+      // Update chart
+      updateTodayChart(sortedDomains);
+    } catch (error) {
+      handleError(error, 'renderData');
+    }
+  }
+  
+  // Fixed update today chart function
+  function updateTodayChart(domainData) {
+    try {
+      // Check if chart container exists
+      const chartCanvas = document.getElementById('todayChart');
+      if (!chartCanvas) {
+        console.error("Chart canvas element not found");
         return;
       }
       
-      chrome.storage.local.get('limits', (data) => {
-        const limits = data.limits || {};
-        limits[domain] = limitMinutes;
+      // Process data for the chart
+      const labels = [];
+      const data = [];
+      const backgroundColors = [];
+      
+      // Limit to top 5 for chart visualization
+      const topDomains = domainData.slice(0, 5);
+      
+      // Add domain data
+      topDomains.forEach(([domain, time]) => {
+        labels.push(domain);
+        data.push(time);
         
-        chrome.storage.local.set({ limits }, () => {
-          showNotification('Limit added!');
-          renderSiteLimits();
-        });
+        // Assign color based on category
+        const category = siteCategories[domain] || 'other';
+        const color = getCategoryColor(category);
+        backgroundColors.push(color);
       });
-    });
-    
-    // Add event listener for the toggle
-    chrome.storage.local.get('settings', (data) => {
-      const settings = data.settings || {};
-      timeLimitsToggle.checked = settings.enableTimeLimits || false;
-    });
-  }
-  
-  function filterSites(query) {
-    const siteItems = timeListDiv.querySelectorAll('.site-item');
-    
-    siteItems.forEach(item => {
-      const siteName = item.querySelector('.site-name').textContent.toLowerCase();
-      if (siteName.includes(query)) {
-        item.style.display = 'flex';
-      } else {
-        item.style.display = 'none';
+      
+      // If there are more than 5 domains, add an "Others" category
+      if (domainData.length > 5) {
+        const otherTime = domainData.slice(5).reduce((total, [, time]) => total + time, 0);
+        labels.push('Others');
+        data.push(otherTime);
+        backgroundColors.push('rgba(150, 150, 150, 0.7)');
       }
-    });
-  }
-  
-  function exportCurrentData() {
-    const currentDate = getCurrentDate();
-    const dataToExport = {
-      date: currentDate,
-      data: currentData[currentDate] || {}
-    };
-    
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tab-tracker-${currentDate}.json`;
-    a.click();
-    
-    showNotification('Data exported!');
-  }
-  
-  function exportAllData() {
-    const dataToExport = {
-      history: currentData,
-      categories: siteCategories
-    };
-    
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tab-tracker-all-data.json';
-    a.click();
-    
-    showNotification('All data exported!');
-  }
-  
-  function importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
       
-      const reader = new FileReader();
+      // If no data, add placeholder
+      if (labels.length === 0) {
+        labels.push('No Data');
+        data.push(1);
+        backgroundColors.push('rgba(200, 200, 200, 0.3)');
+      }
       
-      reader.onload = (e) => {
-        try {
-          const importedData = JSON.parse(e.target.result);
+      console.log("Chart data:", { labels, data });
+      
+      // Create or update the chart
+      const ctx = chartCanvas.getContext('2d');
+      
+      if (todayChart) {
+        todayChart.data.labels = labels;
+        todayChart.data.datasets[0].data = data;
+        todayChart.data.datasets[0].backgroundColor = backgroundColors;
+        todayChart.update();
+      } else {
+        todayChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: backgroundColors,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.5)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  color: 'white',
+                  font: {
+                    size: 10
+                  },
+                  boxWidth: 12
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.raw || 0;
+                    return `${label}: ${formatTime(value)}`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    } catch (error) {
+      handleError(error, 'updateTodayChart');
+    }
+  }
+  
+  // Fixed update analytics function
+  function updateAnalytics(timeRange, startDate, endDate) {
+    try {
+      console.log(`Updating analytics for range: ${timeRange}`);
+      
+      let filteredData = {};
+      const currentDate = new Date();
+      
+      switch (timeRange) {
+        case 'day':
+          const todayStr = getCurrentDate();
+          filteredData[todayStr] = currentData[todayStr] || {};
+          break;
+        
+        case 'week':
+          // Get data for the last 7 days
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(currentDate);
+            date.setDate(date.getDate() - i);
+            const dateStr = formatDate(date);
+            if (currentData[dateStr]) {
+              filteredData[dateStr] = currentData[dateStr];
+            }
+          }
+          break;
+        
+        case 'month':
+          // Get data for the current month
+          const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+          const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
           
-          // Validate imported data
-          if (!importedData.history || typeof importedData.history !== 'object') {
-            throw new Error('Invalid data format');
+          for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+            const dateStr = formatDate(new Date(d));
+            if (currentData[dateStr]) {
+              filteredData[dateStr] = currentData[dateStr];
+            }
+          }
+          break;
+        
+        case 'custom':
+          if (!startDate || !endDate) {
+            showNotification('Please select both start and end dates', 'error');
+            return;
           }
           
-          // Merge with existing data
-          chrome.storage.local.get(['history', 'categories'], (data) => {
-            const mergedHistory = { ...data.history, ...importedData.history };
-            const mergedCategories = { ...data.categories, ...importedData.categories };
-            
-            chrome.storage.local.set({ 
-              history: mergedHistory, 
-              categories: mergedCategories 
-            }, () => {
-              showNotification('Data imported successfully!');
-              fetchDataAndRender();
-            });
-          });
+          // Parse custom date range
+          const start = new Date(startDate);
+          const end = new Date(endDate);
           
-        } catch (error) {
-          showNotification('Error importing data: ' + error.message);
-        }
-      };
-      
-      reader.readAsText(file);
-    });
-    
-    input.click();
-  }
-  
-  function initializeUserPreferences() {
-    chrome.storage.local.get('preferences', (data) => {
-      const prefs = data.preferences || {};
-      
-      // Dark mode
-      if (prefs.darkMode) {
-        darkModeToggle.checked = true;
-        document.body.classList.add('dark-mode');
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            showNotification('Invalid date range', 'error');
+            return;
+          }
+          
+          if (start > end) {
+            showNotification('Start date must be before end date', 'error');
+            return;
+          }
+          
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = formatDate(new Date(d));
+            if (currentData[dateStr]) {
+              filteredData[dateStr] = currentData[dateStr];
+            }
+          }
+          break;
       }
       
-      // Show seconds
-      showSecondsToggle.checked = prefs.showSeconds !== false; // Default to true
-    });
+      console.log(`Filtered data has ${Object.keys(filteredData).length} days`);
+      
+      renderHistoryData(filteredData);
+      updateHistoryChart(filteredData);
+      updateProductivityInsights(filteredData);
+    } catch (error) {
+      handleError(error, 'updateAnalytics');
+    }
   }
   
-  function saveUserPreferences() {
-    const preferences = {
-      darkMode: darkModeToggle.checked,
-      showSeconds: showSecondsToggle.checked
-    };
+  // Fix update history chart
+  function updateHistoryChart(data) {
+    try {
+      // Check if chart container exists
+      const chartCanvas = document.getElementById('historyChart');
+      if (!chartCanvas) {
+        console.error("History chart canvas element not found");
+        return;
+      }
+      
+      // Aggregate data by category
+      const categoryTimes = {};
+      
+      Object.values(data).forEach(domains => {
+        Object.entries(domains).forEach(([domain, time]) => {
+          const category = siteCategories[domain] || 'other';
+          
+          if (!categoryTimes[category]) {
+            categoryTimes[category] = 0;
+          }
+          
+          categoryTimes[category] += time;
+        });
+      });
+      
+      // Prepare chart data
+      const labels = Object.keys(categoryTimes);
+      const times = Object.values(categoryTimes);
+      const backgroundColors = labels.map(category => getCategoryColor(category));
+      
+      console.log("History chart data:", { categories: labels, times });
+      
+      // If no data, add placeholder
+      if (labels.length === 0) {
+        labels.push('No Data');
+        times.push(0);
+        backgroundColors.push('rgba(200, 200, 200, 0.3)');
+      }
+      
+      // Create or update the chart
+      const ctx = chartCanvas.getContext('2d');
+      
+      if (historyChart) {
+        historyChart.data.labels = labels;
+        historyChart.data.datasets[0].data = times;
+        historyChart.data.datasets[0].backgroundColor = backgroundColors;
+        historyChart.update();
+      } else {
+        historyChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Time by Category',
+              data: times,
+              backgroundColor: backgroundColors,
+              borderColor: 'rgba(255, 255, 255, 0.3)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return formatTime(context.raw);
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  color: 'white',
+                  callback: function(value) {
+                    return formatTime(value, true);
+                  }
+                },
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.1)'
+                }
+              },
+              x: {
+                ticks: {
+                  color: 'white'
+                },
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.1)'
+                }
+              }
+            }
+          }
+        });
+      }
+    } catch (error) {
+      handleError(error, 'updateHistoryChart');
+    }
+  }
+  
+  // Improved notification system
+  function showNotification(message, type = 'info') {
+    if (!notification) return;
     
-    chrome.storage.local.set({ preferences });
-  }
-  
-  function showNotification(message) {
     notification.textContent = message;
+    notification.className = `notification ${type}`;
     notification.classList.add('show');
     
     setTimeout(() => {
@@ -765,58 +613,92 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000);
   }
   
-  // Helper functions
-  function getCurrentDate() {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  // Initialize the extension with better error handling
+  try {
+    initializeUserPreferences();
+    fetchDataAndRender();
+    console.log("Extension initialized successfully");
+  } catch (error) {
+    handleError(error, 'initialization');
   }
   
-  function formatDate(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  // Add category button functionality
+  const addCategoryButton = document.getElementById('addCategoryButton');
+  if (addCategoryButton) {
+    addCategoryButton.addEventListener('click', () => {
+      const domain = prompt('Enter domain to categorize (e.g., example.com):');
+      if (!domain) return;
+      
+      const category = prompt('Enter category (work, social, entertainment, other):');
+      if (!['work', 'social', 'entertainment', 'other'].includes(category)) {
+        showNotification('Invalid category. Please use work, social, entertainment, or other.', 'error');
+        return;
+      }
+      
+      siteCategories[domain] = category;
+      chrome.storage.local.set({ categories: siteCategories }, () => {
+        showNotification('Category added!');
+        renderCategories();
+        renderData(currentData);
+        updateAnalytics(timeRangeSelect.value);
+      });
+    });
   }
   
-  function formatTime(seconds, shortFormat = false) {
-    if (seconds === 0) return '0s';
-    
-    const showSeconds = document.getElementById('showSecondsToggle').checked;
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-    
-    if (shortFormat) {
-      if (hours > 0) return `${hours}h`;
-      if (minutes > 0) return `${minutes}m`;
-      return `${remainingSeconds}s`;
+  // Add or update this function in your popup.js file
+
+  function renderSiteLimits() {
+    try {
+      const siteLimits = document.getElementById('siteLimits');
+      if (!siteLimits) {
+        console.error("Site limits element not found");
+        return;
+      }
+      
+      siteLimits.innerHTML = '';
+      
+      // Get saved limits
+      chrome.storage.local.get('limits', (data) => {
+        const limits = data.limits || {};
+        
+        console.log("Site limits:", limits);
+        
+        if (Object.keys(limits).length === 0) {
+          siteLimits.innerHTML = '<div class="empty-state">No site limits set. Add some below.</div>';
+          return;
+        }
+        
+        // Create limit elements
+        Object.entries(limits).forEach(([domain, limit]) => {
+          const limitItem = document.createElement('div');
+          limitItem.className = 'site-limit-row';
+          limitItem.innerHTML = `
+            <span>${domain}</span>
+            <span>${limit} minutes</span>
+            <button class="remove-limit" data-domain="${domain}"><i class="fas fa-trash"></i></button>
+          `;
+          
+          siteLimits.appendChild(limitItem);
+          
+          // Add event listener to remove button
+          const removeButton = limitItem.querySelector('.remove-limit');
+          if (removeButton) {
+            removeButton.addEventListener('click', () => {
+              delete limits[domain];
+              chrome.storage.local.set({ limits }, () => {
+                showNotification('Limit removed!');
+                renderSiteLimits();
+              });
+            });
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Error in renderSiteLimits:", error);
+      showNotification("Error rendering site limits", "error");
     }
-    
-    let timeString = '';
-    
-    if (hours > 0) {
-      timeString += `${hours}h `;
-    }
-    
-    if (minutes > 0 || hours > 0) {
-      timeString += `${minutes}m `;
-    }
-    
-    if (showSeconds && remainingSeconds > 0) {
-      timeString += `${remainingSeconds}s`;
-    }
-    
-    return timeString.trim();
   }
-  
-  function getCategoryColor(category) {
-    switch (category) {
-      case 'work':
-        return 'rgba(50, 205, 50, 0.7)';
-      case 'social':
-        return 'rgba(30, 144, 255, 0.7)';
-      case 'entertainment':
-        return 'rgba(255, 69, 0, 0.7)';
-      default:
-        return 'rgba(128, 128, 128, 0.7)';
-    }
-  }
+
+  // Add the debug panel
+  addDebugPanel();
 });

@@ -4,7 +4,7 @@ body {
     margin: 0;
     padding: 0;
     width: 380px;
-    color: #333;
+    color: #fff; /* Changed from #333 to white for better visibility */
     min-height: 500px;
   }
   
@@ -107,23 +107,11 @@ body {
     background: rgba(255, 255, 255, 0.15);
     margin-bottom: 8px;
     transition: all 0.2s ease;
+    color: #fff; /* Explicitly set text color */
   }
   
-  .site-item:hover {
-    background: rgba(255, 255, 255, 0.25);
-  }
-  
-  .site-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 10px;
-  }
-  
-  .site-name {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .site-name, .site-time {
+    color: #fff; /* Ensure text is visible */
   }
   
   .chart-container {
@@ -268,7 +256,8 @@ body {
     top: 10px;
     right: 10px;
     padding: 10px 15px;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.7); /* Darker background for better visibility */
+    color: #fff; /* White text */
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transform: translateX(120%);
@@ -285,6 +274,126 @@ body {
   }
   
   body.dark-mode .glass-card {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  body.dark-mode button {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  body.dark-mode button:hover {
+    background: rgba(0, 0, 0, 0.4);
+  }
+  
+  body.dark-mode .site-item {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
+  body.dark-mode .site-item:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  body.dark-mode .tab {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  body.dark-mode .tab.active {
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  body.dark-mode .toggle-slider {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+  
+  body.dark-mode .progress-bar {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Enhanced notification styles */
+  .notification.error {
+    background: rgba(220, 53, 69, 0.8);
+    color: white;
+  }
+  
+  .notification.success {
+    background: rgba(40, 167, 69, 0.8);
+    color: white;
+  }
+  
+  /* Fix productivity insights styling */
+  .productivity-score {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .score {
+    font-size: 36px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    display: block;
+    margin: 10px 0;
+  }
+  
+  .category-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .recommendations {
+    margin-top: 20px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+  }
+  
+  /* Fix custom date range styles */
+  #customDateRange {
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    margin-top: 10px;
+  }
+  
+  /* Better empty state styling */
+  .empty-state {
+    padding: 30px 20px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin: 10px 0;
+  }
+  
+  /* Site limit row styling */
+  .site-limit-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+  }
+  
+  .site-limit-row .remove-limit {
+    padding: 4px 8px;
+    font-size: 12px;
+    background: rgba(220, 53, 69, 0.4);
+  }
+  
+  .site-limit-row .remove-limit:hover {
+    background: rgba(220, 53, 69, 0.7);
+  }
+  
+  /* Fix font sizes for better readability */
+  .site-name {
+    font-size: 14px;
+  }
+  
+  .site-time {
+    font-size: 13px;
+    font-weight: 500;
   }

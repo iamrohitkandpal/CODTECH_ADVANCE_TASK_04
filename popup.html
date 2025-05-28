@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tab Time Tracker</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Change Chart.js import to use a specific version and add defer attribute -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
+  <script src="chart.js" defer></script>
   <style>
     .notification {
       position: fixed;
@@ -56,6 +60,7 @@
 
     <div id="notification" class="notification"></div>
     
+    <!-- Today Tab -->
     <div id="today" class="content active">
       <div class="glass-card">
         <div class="action-buttons">
@@ -75,6 +80,7 @@
       </div>
     </div>
 
+    <!-- Analytics Tab -->
     <div id="analytics" class="content">
       <div class="glass-card">
         <div class="dates-filter">
@@ -85,23 +91,30 @@
             <option value="custom">Custom Range</option>
           </select>
         </div>
+        
         <div id="customDateRange" style="display:none;">
           <input type="date" id="startDate">
           <input type="date" id="endDate">
           <button id="applyRange">Apply</button>
         </div>
+        
         <div class="chart-container">
           <canvas id="historyChart"></canvas>
         </div>
-        <div id="history" class="history-data"></div>
       </div>
       
       <div class="glass-card">
         <h3>Productivity Insights</h3>
         <div id="productivityInsights"></div>
       </div>
+      
+      <div class="glass-card">
+        <h3>History</h3>
+        <div id="history" class="history-data"></div>
+      </div>
     </div>
 
+    <!-- Settings Tab -->
     <div id="settings" class="content">
       <div class="glass-card">
         <h3>Display Settings</h3>
@@ -142,9 +155,11 @@
       
       <div class="glass-card">
         <h3>Data Management</h3>
-        <button id="exportDataButton"><i class="fas fa-file-export"></i> Export All Data</button>
-        <button id="importDataButton"><i class="fas fa-file-import"></i> Import Data</button>
-        <button id="clearDataButton" class="danger"><i class="fas fa-trash"></i> Clear All Data</button>
+        <div class="action-buttons" style="justify-content: flex-start;">
+          <button id="exportDataButton"><i class="fas fa-file-export"></i> Export</button>
+          <button id="importDataButton"><i class="fas fa-file-import"></i> Import</button>
+          <button id="clearDataButton" style="background: rgba(220, 53, 69, 0.4);"><i class="fas fa-trash"></i> Clear</button>
+        </div>
       </div>
     </div>
   </div>

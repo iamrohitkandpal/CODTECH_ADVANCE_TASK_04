@@ -24,5 +24,11 @@
       "48": "logo.png",
       "128": "logo.png"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["chart.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

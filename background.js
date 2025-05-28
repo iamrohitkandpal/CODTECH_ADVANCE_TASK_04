@@ -1,114 +1,133 @@
 let tabTime = {};
 let sessionStartTime = Date.now();
 let history = {};
-let settings = {
-  enableTimeLimits: false
-};
+let settings = { enableTimeLimits: false };
 let limits = {};
 let notifications = {};
 let activeTabId = null;
 
 // Initialize data from storage
-chrome.storage.local.get(['history', 'settings', 'limits'], (data) => {
-  if (data.history) history = data.history;
-  if (data.settings) settings = data.settings;
-  if (data.limits) limits = data.limits;
-});
+function initializeData() {
+  chrome.storage.local.get(['history', 'settings', 'limits'], (data) => {
+    if (data.history) history = data.history;
+    if (data.settings) settings = data.settings;
+    if (data.limits) limits = data.limits;
+    console.log("Data loaded from storage:", {
+      historyEntries: Object.keys(history).length,
+      settings,
+      limitsCount: Object.keys(limits).length
+    });
+  });
+}
+
+initializeData();
 
 function getCurrentDate() {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 }
 
+// Extract domain from URL
+function extractDomain(url) {
+  try {
+    if (!url || url.startsWith('chrome://') || url.startsWith('edge://') || 
+        url.startsWith('about:') || url.startsWith('chrome-extension://') ||
+        url.startsWith('moz-extension://')) {
+      return null;
+    }
+    
+    const urlObj = new URL(url);
+    let domain = urlObj.hostname;
+    
+    // Remove www. prefix if present
+    if (domain.startsWith('www.')) {
+      domain = domain.substring(4);
+    }
+    
+    return domain;
+  } catch (e) {
+    console.error("Error extracting domain:", e);
+    return null;
+  }
+}
+
 // Handle active tab changes
 chrome.tabs.onActivated.addListener((activeInfo) => {
   const tabId = activeInfo.tabId;
+  const previousTabId = activeTabId;
   activeTabId = tabId;
   
   // Update timing for previously active tab
-  updateInactiveTabs(tabId);
+  if (previousTabId !== null && previousTabId !== tabId) {
+    updateTabTime(previousTabId);
+  }
   
   // Get information about the newly activated tab
   chrome.tabs.get(tabId, (tab) => {
-    if (chrome.runtime.lastError || !tab || !tab.url || tab.url.startsWith('chrome://')) {
+    if (chrome.runtime.lastError || !tab || !tab.url) {
       return;
     }
     
-    try {
-      const url = new URL(tab.url);
-      const domain = url.hostname;
-      
-      // Initialize tab tracking
-      if (!tabTime[tabId]) {
-        tabTime[tabId] = { 
-          domain, 
-          startTime: Date.now(), 
-          time: 0,
-          url: tab.url,
-          title: tab.title
-        };
-      } else {
-        // Update tab info
-        tabTime[tabId].domain = domain;
-        tabTime[tabId].startTime = Date.now();
-        tabTime[tabId].url = tab.url;
-        tabTime[tabId].title = tab.title;
-      }
-      
-      // Check for time limits if enabled
-      if (settings.enableTimeLimits && limits[domain]) {
-        checkTimeLimits(domain);
-      }
-    } catch (error) {
-      console.error("Error processing tab URL:", error);
+    const domain = extractDomain(tab.url);
+    if (!domain) return;
+    
+    // Initialize tab tracking
+    tabTime[tabId] = { 
+      domain, 
+      startTime: Date.now(), 
+      time: tabTime[tabId] ? tabTime[tabId].time || 0 : 0,
+      url: tab.url,
+      title: tab.title || domain
+    };
+    
+    // Check for time limits if enabled
+    if (settings.enableTimeLimits && limits[domain]) {
+      checkTimeLimits(domain);
     }
   });
 });
 
 // Update tab when URL changes
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === "complete" && tab.active && tab.url && !tab.url.startsWith('chrome://')) {
-    try {
-      const url = new URL(tab.url);
-      const domain = url.hostname;
+  if (changeInfo.status === "complete" && tab.active && tab.url) {
+    const domain = extractDomain(tab.url);
+    if (!domain) return;
+    
+    // If we already track this tab but domain changed
+    if (tabTime[tabId] && tabTime[tabId].domain !== domain) {
+      // Save time for previous domain
+      updateTabTime(tabId);
       
-      // Update tab information
-      if (!tabTime[tabId]) {
-        tabTime[tabId] = { 
-          domain, 
-          startTime: Date.now(), 
-          time: 0,
-          url: tab.url,
-          title: tab.title
-        };
-      } else {
-        // Only update if domain has changed
-        if (tabTime[tabId].domain !== domain) {
-          // Save time for previous domain
-          saveTabTime(tabId);
-          
-          // Reset for new domain
-          tabTime[tabId].domain = domain;
-          tabTime[tabId].startTime = Date.now();
-          tabTime[tabId].url = tab.url;
-          tabTime[tabId].title = tab.title;
-        }
-      }
-      
-      // Check for time limits if enabled
-      if (settings.enableTimeLimits && limits[domain]) {
-        checkTimeLimits(domain);
-      }
-    } catch (error) {
-      console.error("Error processing updated tab URL:", error);
+      // Reset for new domain
+      tabTime[tabId] = {
+        domain,
+        startTime: Date.now(),
+        time: 0,
+        url: tab.url,
+        title: tab.title || domain
+      };
+    } else if (!tabTime[tabId]) {
+      // Initialize new tab tracking
+      tabTime[tabId] = { 
+        domain, 
+        startTime: Date.now(), 
+        time: 0,
+        url: tab.url,
+        title: tab.title || domain
+      };
+    }
+    
+    // Check for time limits if enabled
+    if (settings.enableTimeLimits && limits[domain]) {
+      checkTimeLimits(domain);
     }
   }
 });
 
 // Handle tab close
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabTime[tabId]) {
-    saveTabTime(tabId);
+    updateTabTime(tabId);
     delete tabTime[tabId];
   }
 });
@@ -118,128 +137,53 @@ chrome.runtime.onSuspend.addListener(() => {
   saveAllTabData();
 });
 
-// Handle messages from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.action) {
-    case 'resetTimers':
-      tabTime = {};
-      sessionStartTime = Date.now();
-      sendResponse({ status: 'success', message: 'Session timers reset.' });
-      break;
-      
-    case 'getHistory':
-      updateCurrentTabTime();
-      chrome.storage.local.get('history', (data) => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ status: 'error', message: chrome.runtime.lastError });
-          return;
-        }
-        sendResponse({ status: 'success', history: data.history || history });
-      });
-      return true; // To indicate asynchronous response
-      
-    case 'clearAllData':
-      tabTime = {};
-      history = {};
-      chrome.storage.local.set({ history: {} }, () => {
-        sendResponse({ status: 'success', message: 'All data cleared.' });
-      });
-      return true;
-      
-    case 'updateSettings':
-      settings = { ...settings, ...message.settings };
-      chrome.storage.local.set({ settings }, () => {
-        sendResponse({ status: 'success', message: 'Settings updated.' });
-      });
-      return true;
-  }
-});
-
-// Update timing for inactive tabs
-function updateInactiveTabs(currentTabId) {
-  const now = Date.now();
+// Update time for a specific tab and save it
+function updateTabTime(tabId) {
+  if (!tabTime[tabId] || !tabTime[tabId].startTime) return;
   
-  // Update time for all tabs except the current one
-  for (let id in tabTime) {
-    if (id !== `${currentTabId}` && tabTime[id].startTime) {
-      const elapsedTime = now - tabTime[id].startTime;
-      tabTime[id].time += Math.floor(elapsedTime / 1000);
-      tabTime[id].startTime = now;
-    }
+  const { domain, startTime, time } = tabTime[tabId];
+  if (!domain) return;
+  
+  const now = Date.now();
+  const elapsedTime = Math.floor((now - startTime) / 1000);
+  
+  // Only update if meaningful time has passed (more than 1 second)
+  if (elapsedTime > 1) {
+    const newTotalTime = time + elapsedTime;
+    tabTime[tabId].time = newTotalTime;
+    tabTime[tabId].startTime = now;
+    
+    // Update history
+    const currentDate = getCurrentDate();
+    if (!history[currentDate]) history[currentDate] = {};
+    
+    history[currentDate][domain] = (history[currentDate][domain] || 0) + elapsedTime;
+    
+    // Save to storage every time we update (can be optimized with debouncing)
+    saveHistoryToStorage();
   }
 }
 
-// Save tab time data to history
-function saveTabTime(tabId) {
-  const currentDate = getCurrentDate();
-  if (!history[currentDate]) history[currentDate] = {};
-  
-  const { domain, startTime, time } = tabTime[tabId];
-  
-  // Calculate final time including time since last start
-  const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-  const totalTime = time + elapsedTime;
-  
-  // Update history
-  if (!history[currentDate][domain]) {
-    history[currentDate][domain] = totalTime;
-  } else {
-    history[currentDate][domain] += totalTime;
-  }
-  
-  // Save to storage
-  chrome.storage.local.set({ history });
+// Save history to storage
+function saveHistoryToStorage() {
+  chrome.storage.local.set({ history }, () => {
+    if (chrome.runtime.lastError) {
+      console.error("Error saving history:", chrome.runtime.lastError);
+    }
+  });
 }
 
 // Save all open tab data
 function saveAllTabData() {
   const now = Date.now();
-  const currentDate = getCurrentDate();
-  
-  if (!history[currentDate]) history[currentDate] = {};
   
   // Update time for all tabs
-  for (let id in tabTime) {
-    if (tabTime[id].startTime) {
-      const elapsedTime = now - tabTime[id].startTime;
-      tabTime[id].time += Math.floor(elapsedTime / 1000);
-      tabTime[id].startTime = now;
-      
-      const { domain, time } = tabTime[id];
-      
-      // Update history
-      if (!history[currentDate][domain]) {
-        history[currentDate][domain] = time;
-      } else {
-        history[currentDate][domain] += time;
-      }
-    }
-  }
+  Object.keys(tabTime).forEach(tabId => {
+    updateTabTime(parseInt(tabId));
+  });
   
-  // Save to storage
-  chrome.storage.local.set({ history });
-}
-
-// Update current tab time when needed
-function updateCurrentTabTime() {
-  if (activeTabId && tabTime[activeTabId]) {
-    const now = Date.now();
-    const elapsedTime = now - tabTime[activeTabId].startTime;
-    
-    // Only update if more than 1 second has passed
-    if (elapsedTime > 1000) {
-      tabTime[activeTabId].time += Math.floor(elapsedTime / 1000);
-      tabTime[activeTabId].startTime = now;
-    }
-    
-    // Check limits
-    if (settings.enableTimeLimits) {
-      const domain = tabTime[activeTabId].domain;
-      if (limits[domain]) {
-        checkTimeLimits(domain);
-      }
-    }
-  }
+  // Force save to storage
+  saveHistoryToStorage();
 }
 
 // Check if a domain has exceeded its time limit
@@ -252,12 +196,12 @@ function checkTimeLimits(domain) {
   let totalTime = history[currentDate][domain] || 0;
   
   // Add time from currently open tabs with this domain
-  for (let id in tabTime) {
-    if (tabTime[id].domain === domain) {
-      const elapsedTime = Math.floor((Date.now() - tabTime[id].startTime) / 1000);
-      totalTime += tabTime[id].time + elapsedTime;
+  Object.keys(tabTime).forEach(tabId => {
+    if (tabTime[tabId].domain === domain) {
+      const elapsedTime = Math.floor((Date.now() - tabTime[tabId].startTime) / 1000);
+      totalTime += tabTime[tabId].time + elapsedTime;
     }
-  }
+  });
   
   // Convert limit to seconds (it's stored in minutes)
   const limitSeconds = limits[domain] * 60;
@@ -269,7 +213,8 @@ function checkTimeLimits(domain) {
       type: 'basic',
       iconUrl: 'logo.png',
       title: 'Time Limit Reached',
-      message: `You've reached your time limit for ${domain}.`
+      message: `You've reached your time limit for ${domain}.`,
+      priority: 2
     });
     
     // Mark as notified
@@ -277,52 +222,83 @@ function checkTimeLimits(domain) {
   }
 }
 
-// Set up alarm for periodic updates
-chrome.alarms.create('saveData', { periodInMinutes: 1 });
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'saveData') {
-    updateCurrentTabTime();
-    chrome.storage.local.set({ history });
-  }
-});
-
-// Set up alarm for daily reset of notifications
-chrome.alarms.create('dailyReset', { 
-  when: new Date().setHours(0, 0, 0, 0) + 86400000, // Next midnight
-  periodInMinutes: 1440 // 24 hours
-});
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'dailyReset') {
-    notifications = {}; // Clear notifications for the new day
-  }
-});
-
-// Initialize
-(() => {
-  // Check for currently active tab
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs.length > 0 && tabs[0].id) {
-      const tab = tabs[0];
-      activeTabId = tab.id;
-      
-      if (tab.url && !tab.url.startsWith('chrome://')) {
-        try {
-          const url = new URL(tab.url);
-          const domain = url.hostname;
-          
-          tabTime[tab.id] = { 
-            domain, 
-            startTime: Date.now(), 
-            time: 0,
-            url: tab.url,
-            title: tab.title
-          };
-        } catch (error) {
-          console.error("Error processing initial tab URL:", error);
-        }
-      }
+// Handle messages from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  try {
+    switch (message.action) {
+      case 'resetTimers':
+        // Update all tabs first
+        saveAllTabData();
+        // Then reset
+        tabTime = {};
+        sessionStartTime = Date.now();
+        sendResponse({ status: 'success', message: 'Session timers reset.' });
+        break;
+        
+      case 'getHistory':
+        // Make sure we have the latest timing data
+        saveAllTabData();
+        sendResponse({ status: 'success', history: history });
+        break;
+        
+      case 'clearAllData':
+        tabTime = {};
+        history = {};
+        chrome.storage.local.set({ history: {} }, () => {
+          sendResponse({ status: 'success', message: 'All data cleared.' });
+        });
+        return true; // For async response
+        
+      case 'updateSettings':
+        settings = { ...settings, ...message.settings };
+        chrome.storage.local.set({ settings }, () => {
+          sendResponse({ status: 'success', message: 'Settings updated.' });
+        });
+        return true; // For async response
+        
+      case 'ping':
+        // Update data before responding
+        saveAllTabData();
+        sendResponse({ 
+          status: 'success', 
+          message: 'Background script is active',
+          activeTabId,
+          tabCount: Object.keys(tabTime).length,
+          currentDate: getCurrentDate()
+        });
+        break;
+        
+      default:
+        sendResponse({ status: 'error', message: 'Unknown action' });
     }
-  });
-})();
+  } catch (e) {
+    console.error("Error processing message:", e);
+    sendResponse({ status: 'error', message: e.message });
+  }
+});
+
+// Periodically save all tab data
+setInterval(() => {
+  saveAllTabData();
+}, 30000); // Every 30 seconds
+
+// Check active tabs on startup
+chrome.tabs.query({ active: true }, tabs => {
+  if (tabs && tabs.length > 0) {
+    const tab = tabs[0];
+    activeTabId = tab.id;
+    
+    const domain = extractDomain(tab.url);
+    if (domain) {
+      tabTime[tab.id] = { 
+        domain, 
+        startTime: Date.now(), 
+        time: 0,
+        url: tab.url,
+        title: tab.title || domain
+      };
+    }
+  }
+});
+
+console.log("Tab Time Tracker background initialized:", new Date().toLocaleString());

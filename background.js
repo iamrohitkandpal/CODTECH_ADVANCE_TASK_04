@@ -302,3 +302,14 @@ chrome.tabs.query({ active: true }, tabs => {
 });
 
 console.log("Tab Time Tracker background initialized:", new Date().toLocaleString());
+
+// Log active tracking information every minute
+setInterval(() => {
+  console.log("Active tracking status:", {
+    activeTabId,
+    trackedTabs: Object.keys(tabTime).length,
+    domains: Object.keys(tabTime).map(id => tabTime[id].domain),
+    today: getCurrentDate(),
+    domainsToday: history[getCurrentDate()] ? Object.keys(history[getCurrentDate()]) : []
+  });
+}, 60000);

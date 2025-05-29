@@ -2,12 +2,18 @@
   "manifest_version": 3,
   "name": "Tab Time Tracker",
   "description": "Track how much time you spend on each website with advanced analytics and productivity insights.",
-  "version": "2.0",
+  "version": "4.0",
   "permissions": [
     "tabs",
     "storage",
     "alarms",
-    "notifications"
+    "notifications",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://api.quotable.io/",
+    "https://zenquotes.io/",
+    "https://type.fit/"
   ],
   "background": {
     "service_worker": "background.js"

@@ -377,6 +377,109 @@ input:checked + .toggle-slider:before {
   background: rgba(40, 167, 69, 0.8);
 }
 
+/* Data Source Indicator */
+.data-source-indicator {
+  font-size: 12px;
+  padding: 4px 8px;
+  margin: 8px 0;
+  border-radius: 4px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.data-source-indicator .fas {
+  margin-right: 4px;
+}
+
+/* Quote styling */
+.quote-container {
+  text-align: center;
+  font-style: italic;
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.quote-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.quote-container blockquote {
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.quote-author {
+  margin-top: 10px;
+  font-style: normal;
+  font-size: 12px;
+  opacity: 0.8;
+  text-align: right;
+}
+
+.quote-container .fa-quote-left {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.quote-container .fa-quote-right {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.loading-spinner {
+  padding: 15px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.quote-badge {
+  position: absolute;
+  top: -10px;
+  left: 15px;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* Category-specific styles */
+.quote-badge.productivity {
+  background: rgba(50, 205, 50, 0.3);
+}
+
+.quote-badge.focus {
+  background: rgba(255, 193, 7, 0.3);
+}
+
+.quote-badge.timeManagement {
+  background: rgba(30, 144, 255, 0.3);
+}
+
+.quote-badge.balance {
+  background: rgba(147, 112, 219, 0.3);
+}
+
+.quote-badge.motivation {
+  background: rgba(255, 99, 132, 0.3);
+}
+
 /* Dark Mode */
 body.dark-mode {
   background: var(--dark-gradient);
@@ -440,4 +543,58 @@ body.dark-mode .chart-container .chartjs-legend li span {
   body.dark-mode .glass-card {
     background: rgba(0, 0, 0, 0.4);
   }
+}
+
+.quote-refresh-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.quote-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+.quote-container:hover .quote-refresh-btn {
+  opacity: 0.8;
+}
+
+.quote-share-btn {
+  position: absolute;
+  top: 10px;
+  right: 40px;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.quote-share-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+.quote-container:hover .quote-share-btn {
+  opacity: 0.8;
 }

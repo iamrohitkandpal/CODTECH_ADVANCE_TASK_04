@@ -1,40 +1,57 @@
 {
   "manifest_version": 3,
-  "name": "Tab Time Tracker",
-  "description": "Track how much time you spend on each website with advanced analytics and productivity insights.",
-  "version": "4.0",
+  "name": "TimeTab",
+  "short_name": "TimeTab",
+  "description": "Track time spent on websites with detailed analytics, productivity insights, and motivational quotes. Set time limits and optimize your browsing habits.",
+  "version": "4.1.2",
+  "author": "xAI Community",
+  "homepage_url": "https://github.com/xai-community/timetab",
+  "minimum_chrome_version": "88",
+  "offline_enabled": true,
   "permissions": [
     "tabs",
+    "activeTab",
     "storage",
-    "alarms",
     "notifications",
-    "clipboardWrite"
+    "idle"
   ],
   "host_permissions": [
-    "https://api.quotable.io/",
-    "https://zenquotes.io/",
-    "https://type.fit/"
+    "<all_urls>",
+    "https://api.quotable.io/*",
+    "https://zenquotes.io/*",
+    "https://type.fit/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "icons": {
-    "16": "logo.png",
-    "48": "logo.png",
-    "128": "logo.png"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "logo.png",
-      "48": "logo.png",
-      "128": "logo.png"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "web_accessible_resources": [
     {
-      "resources": ["chart.js"],
+      "resources": [
+        "logo.png",
+        "style.css",
+        "popup.js",
+        "chart.min.js",
+        "icons/icon16.png",
+        "icons/icon48.png",
+        "icons/icon128.png"
+      ],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.quotable.io https://zenquotes.io https://type.fit; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.google.com https://via.placeholder.com;"
+  }
 }
